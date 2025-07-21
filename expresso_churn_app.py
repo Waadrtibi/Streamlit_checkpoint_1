@@ -1,84 +1,69 @@
-import streamlit as st
+# === 📦 Importer les bibliothèques nécessaires
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score
-import gdown
+import seaborn as sns
+import matplotlib.pyplot as plt
+from ydata_profiling import ProfileReport
+import warnings
+warnings.filterwarnings('ignore')
 
-# =============== PARTIE 1 : Chargement des données ===============
-@st.cache_data
-def load_data():
-    # Téléchargement direct depuis Google Drive
-    url = "https://drive.google.com/uc?id=12_KUHr5NlHO_6bN5SylpkxWc-JvpJNWe"
-    output = "expresso_churn.csv"
-    gdown.download(url, output, quiet=False)
+# === 📁 Charger les données
+file_path = "C:/Users/Waad RTIBI/Streamlit_checkpoint_1/Expresso_churn_dataset.csv"
+df = pd.read_csv(file_path)
 
-    # Lecture du fichier CSV
-    df = pd.read_csv(output)
+print("✅ Aperçu du dataset :")
+print(df.head())
 
-    # Nettoyage des noms de colonnes (en minuscules, sans espaces)
-    df.columns = df.columns.str.strip().str.lower()
-    
-    return df
+# === ℹ️ Informations générales
+print("\n🔍 Info :")
+print(df.info())
 
-# =============== PARTIE 2 : Prétraitement ===============
-def preprocess_data(df):
-    # Vérifier si 'churn' est présent
-    if 'churn' not in df.columns:
-        st.error("❌ La colonne 'churn' est introuvable dans le dataset.")
-        st.write("🧪 Voici les colonnes disponibles :", df.columns.tolist())
-        st.stop()
+# === 📊 Générer un rapport de profilage
+print("\n📄 Génération du rapport HTML...")
+profile = ProfileReport(df, title="Expresso Churn Profiling Report", explorative=True)
+profile.to_file("expresso_churn_report.html")
 
-    # Encodage des colonnes catégorielles
-    for col in df.select_dtypes(include='object').columns:
-        df[col] = LabelEncoder().fit_transform(df[col].astype(str))
+# === ❌ Gérer les valeurs manquantes
+print("\n🧹 Traitement des valeurs manquantes :")
+missing = df.isnull().sum()
+print(missing[missing > 0])
 
-    return df
+# Exemple : remplacer ou supprimer selon les cas
+if 'arpu_change' in df.columns:
+    df['arpu_change'].fillna(df['arpu_change'].median(), inplace=True)
 
-# =============== PARTIE 3 : Entraînement des modèles ===============
-def train_models(df):
-    X = df.drop(columns=["churn"])
-    y = df["churn"]
+if 'seniority' in df.columns:
+    df.dropna(subset=['seniority'], inplace=True)
 
-    # Séparation en train/test
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+if 'freq_top_pack_change' in df.columns:
+    df.dropna(subset=['freq_top_pack_change'], inplace=True)
 
-    models = {
-        "Logistic Regression": LogisticRegression(max_iter=1000),
-        "Random Forest": RandomForestClassifier(random_state=42),
-        "K-Nearest Neighbors": KNeighborsClassifier()
-    }
+# === 📌 Supprimer les doublons
+nb_duplicates = df.duplicated().sum()
+print(f"\n🗑️ Doublons supprimés : {nb_duplicates}")
+df.drop_duplicates(inplace=True)
 
-    results = {}
-    for name, model in models.items():
-        model.fit(X_train, y_train)
-        y_pred = model.predict(X_test)
-        accuracy = accuracy_score(y_test, y_pred)
-        results[name] = accuracy
+# === ⚠️ Détection et suppression des outliers (méthode IQR)
+print("\n📦 Suppression des outliers numériques :")
+num_cols = df.select_dtypes(include=np.number).columns
+for col in num_cols:
+    Q1 = df[col].quantile(0.25)
+    Q3 = df[col].quantile(0.75)
+    IQR = Q3 - Q1
+    lower = Q1 - 1.5 * IQR
+    upper = Q3 + 1.5 * IQR
+    outliers = df[(df[col] < lower) | (df[col] > upper)]
+    if not outliers.empty:
+        print(f" - {col}: {len(outliers)} valeurs supprimées")
+        df = df[(df[col] >= lower) & (df[col] <= upper)]
 
-    return results
+# === 🔤 Encodage des variables catégorielles
+print("\n🔠 Encodage des variables catégorielles :")
+cat_cols = df.select_dtypes(include='object').columns.tolist()
+print("Colonnes catégorielles :", cat_cols)
+df = pd.get_dummies(df, columns=cat_cols, drop_first=True)
 
-# =============== PARTIE 4 : Interface utilisateur Streamlit ===============
-def main():
-    st.title("📊 Prédiction de Churn - Dataset Expresso")
-
-    st.markdown("Cette application utilise 3 algorithmes de Machine Learning pour prédire si un client va résilier (churn) ou non.")
-
-    df = load_data()
-    st.write("📄 Aperçu des données brutes :", df.head())
-
-    df_clean = preprocess_data(df)
-    st.success("✅ Données prétraitées avec succès.")
-
-    results = train_models(df_clean)
-    st.subheader("📈 Précision des modèles :")
-    for model_name, score in results.items():
-        st.write(f"🔹 {model_name} : {score:.2%}")
-
-# =============== Lancement de l'app ===============
-if __name__ == "__main__":
-    main()
+# === 💾 Enregistrer le fichier nettoyé
+output_path = "C:/Users/Waad RTIBI/Streamlit_checkpoint_1/Expresso_churn_cleaned.csv"
+df.to_csv(output_path, index=False)
+print(f"\n✅ Données nettoyées sauvegardées ici : {output_path}")
