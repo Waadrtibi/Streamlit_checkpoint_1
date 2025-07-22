@@ -2,47 +2,47 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# 🔄 Fonction pour charger le modèle
-@st.cache_resource
-def load_model():
-    model = joblib.load("C:/Users/Waad RTIBI/Streamlit_checkpoint_1/expresso_churn_model.pkl")
-    return model
+# Charger le modèle et les colonnes
+model = joblib.load(r"C:\Users\Waad RTIBI\Streamlit_checkpoint_1\expresso_churn_model.pkl")
+model_columns = joblib.load(r"C:\Users\Waad RTIBI\Streamlit_checkpoint_1\model_columns.pkl")
 
-# 📘 Fonction pour collecter les entrées utilisateur
-def user_input_features():
-    st.sidebar.header("📋 Données client")
-    region = st.sidebar.selectbox("Region", ["Dakar", "Diourbel", "Fatick", "Kaolack", "Kaffrine"])
-    tenure = st.sidebar.slider("Durée d'abonnement (mois)", 0, 60, 12)
-    age = st.sidebar.slider("Âge", 18, 80, 30)
-    has_fiber = st.sidebar.selectbox("Fibre", ["Yes", "No"])
-    monthly_spend = st.sidebar.slider("Dépenses mensuelles", 0, 100000, 25000)
-    support_calls = st.sidebar.slider("Appels au support", 0, 50, 5)
+st.title("📱 Prédiction de Churn - Expresso")
 
-    data = {
-        'REGION': region,
-        'TENURE': tenure,
-        'AGE': age,
-        'FIBER': 1 if has_fiber == "Yes" else 0,
-        'MONTANT': monthly_spend,
-        'FREQUENCE_RECH': support_calls,
+# Interface utilisateur
+ARPU = st.number_input("ARPU", min_value=0.0)
+FREQ_RECH = st.number_input("FREQ_RECH", min_value=0)
+FREQ_CALL = st.number_input("FREQ_CALL", min_value=0)
+MONTANT = st.number_input("MONTANT", min_value=0)
+REVENUE = st.number_input("REVENUE", min_value=0)
+MRG = st.number_input("MRG", min_value=0)
+REGION = st.selectbox("REGION", ['DAKAR', 'THIES', 'KAOLACK', 'FATICK', 'SAINT-LOUIS', 'ZIGUINCHOR', 'KAFFRINE'])
+
+if st.button("Prédire"):
+    # Créer un DataFrame avec les valeurs utilisateur
+    input_dict = {
+        "ARPU": ARPU,
+        "FREQ_RECH": FREQ_RECH,
+        "FREQ_CALL": FREQ_CALL,
+        "MONTANT": MONTANT,
+        "REVENUE": REVENUE,
+        "MRG": MRG,
+        "REGION": REGION
     }
-    return pd.DataFrame([data])
+    input_df = pd.DataFrame([input_dict])
 
-# 🚀 Titre de l’application
-st.title("📉 Prédiction de Churn Client Expresso")
+    # Encodage
+    input_encoded = pd.get_dummies(input_df)
 
-# 🧠 Chargement du modèle
-model = load_model()
+    # Ajouter les colonnes manquantes
+    for col in model_columns:
+        if col not in input_encoded.columns:
+            input_encoded[col] = 0
 
-# 🧾 Entrée utilisateur
-input_df = user_input_features()
+    # Réordonner les colonnes
+    input_encoded = input_encoded[model_columns]
 
-# 🧪 Prédiction
-if st.button("🔍 Prédire le churn"):
-    prediction = model.predict(input_df)
-    proba = model.predict_proba(input_df)[0][1]
+    # Prédiction
+    prediction = model.predict(input_encoded)[0]
+    prediction_proba = model.predict_proba(input_encoded)[0][1]
 
-    if prediction[0] == 1:
-        st.error(f"⚠️ Le client risque de partir. (Probabilité : {proba:.2%})")
-    else:
-        st.success(f"✅ Le client est fidèle. (Probabilité de churn : {proba:.2%})")
+    st.success(f"🔍 Résultat : {'Churn' if prediction == 1 else 'Non-Churn'} (Probabilité: {prediction_proba:.2%})")
