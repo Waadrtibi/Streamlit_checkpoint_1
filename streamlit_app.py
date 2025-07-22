@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import joblib
+import numpy as np
 
 # Charger le modèle et les colonnes
 model = joblib.load(r"C:\Users\Waad RTIBI\Streamlit_checkpoint_1\expresso_churn_model.pkl")
@@ -41,9 +42,18 @@ if st.button("Prédire"):
     # Réordonner les colonnes
     input_encoded = input_encoded[model_columns]
 
+    # Afficher les classes du modèle pour debug
+    st.write("📊 Classes du modèle :", model.classes_)
+
     # Prédiction
-    print(model.classes_)
     prediction = model.predict(input_encoded)[0]
-    prediction_proba = model.predict_proba(input_encoded)[0][1]
+    proba = model.predict_proba(input_encoded)[0]
+
+    # Gérer cas 1 seule classe
+    if len(model.classes_) == 2:
+        idx_1 = np.where(model.classes_ == 1)[0][0]
+        prediction_proba = proba[idx_1]
+    else:
+        prediction_proba = 0.0  # ou afficher un message
 
     st.success(f"🔍 Résultat : {'Churn' if prediction == 1 else 'Non-Churn'} (Probabilité: {prediction_proba:.2%})")
