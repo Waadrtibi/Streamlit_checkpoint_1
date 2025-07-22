@@ -42,6 +42,7 @@ if st.button("Prédire"):
     input_encoded = input_encoded[model_columns]
 
     # Prédiction
+    print(model.classes_)
     prediction = model.predict(input_encoded)[0]
     prediction_proba = model.predict_proba(input_encoded)[0][1]
 
